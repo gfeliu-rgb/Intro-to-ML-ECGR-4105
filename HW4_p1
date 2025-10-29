@@ -1,0 +1,89 @@
+from sklearn import datasets
+from sklearn.svm import SVC
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    confusion_matrix, ConfusionMatrixDisplay
+)
+import numpy as np
+import matplotlib.pyplot as plt
+
+# --- data ---
+bc = datasets.load_breast_cancer()
+X_mat = bc.data
+y_vec = bc.target
+
+# --- train/test split (identical randomness & stratification) ---
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X_mat, y_vec, test_size=0.2, random_state=42, stratify=y_vec
+)
+
+# --- standardize with identical behavior ---
+sc = StandardScaler()
+X_tr = sc.fit_transform(X_tr)
+X_te = sc.transform(X_te)
+
+# --- evaluate kernels ---
+kernel_options = ['linear', 'poly', 'rbf', 'sigmoid']
+scores = {}
+cms = {}
+
+for k in kernel_options:
+    clf = SVC(kernel=k, C=1.0)
+    clf.fit(X_tr, y_tr)
+    y_hat = clf.predict(X_te)
+
+    acc = accuracy_score(y_te, y_hat)
+    prec = precision_score(y_te, y_hat)
+    rec = recall_score(y_te, y_hat)
+    f1 = f1_score(y_te, y_hat)
+    cm = confusion_matrix(y_te, y_hat)
+
+    scores[k] = [acc, prec, rec, f1]
+    cms[k] = cm
+
+    # Print performance results (same fields/order)
+    print("kernel:", k)
+    print("Accuracy :", acc)
+    print("Precision:", prec)
+    print("Recall   :", rec)
+    print("F1 Score :", f1)
+    print(" ")
+
+# --- HW3 fixed results (unchanged numbers & matrix) ---
+Hw3_accuracy = 0.9824561403508771
+Hw3_precision = 0.9726027397260274
+Hw3_recall = 1.0
+Hw3_f1 = 0.9861111111111112
+
+Hw3_cm = np.array([[41, 2],
+                   [0, 71]])
+
+print("HW3 Results:")
+print("Accuracy :", Hw3_accuracy)
+print("Precision:", Hw3_precision)
+print("Recall   :", Hw3_recall)
+print("F1 Score :", Hw3_f1)
+print(" ")
+
+# --- choose best by accuracy (same tie behavior via insertion order) ---
+best_kernel = None
+max_accuracy = 0
+for k in scores:
+    if scores[k][0] > max_accuracy:
+        max_accuracy = scores[k][0]
+        best_kernel = k
+
+# --- plots: same labels and titles ---
+fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+ConfusionMatrixDisplay(confusion_matrix=cms[best_kernel],
+                       display_labels=bc.target_names).plot(ax=ax[0], cmap='Blues')
+ax[0].set_title(f"SVM ({best_kernel} kernel) Confusion Matrix")
+
+ConfusionMatrixDisplay(confusion_matrix=Hw3_cm,
+                       display_labels=bc.target_names).plot(ax=ax[1], cmap='Reds')
+ax[1].set_title("Logistic Regression (HW3) Confusion Matrix")
+
+plt.tight_layout()
+plt.show()
