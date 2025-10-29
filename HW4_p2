@@ -1,0 +1,96 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.svm import SVR
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+
+# load dataset
+path = "Housing.csv"
+df = pd.read_csv(path)
+
+# select predictors
+feature_cols = [
+    'area', 'bedrooms', 'bathrooms', 'stories',
+    'mainroad', 'guestroom', 'basement',
+    'hotwaterheating', 'airconditioning', 'parking', 'prefarea'
+]
+
+# convert yes/no flags to 1/0
+yn_cols = ['mainroad', 'guestroom', 'basement', 'hotwaterheating', 'airconditioning', 'prefarea']
+for c in yn_cols:
+    df[c] = df[c].map({'yes': 1, 'no': 0})
+
+# build matrices
+X = df[feature_cols].values
+y = df.values[:, 0]  # Price column assumed as the first column
+
+# split + scale
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42)
+scaler = StandardScaler()
+X_tr = scaler.fit_transform(X_tr)
+X_te = scaler.transform(X_te)
+
+# SVR models
+svr_rbf = SVR(kernel='rbf', C=100, gamma=0.1)
+svr_lin = SVR(kernel='linear', C=5)
+svr_poly = SVR(kernel='poly', C=100, degree=2)
+
+svr_rbf.fit(X_tr, y_tr)
+svr_lin.fit(X_tr, y_tr)
+svr_poly.fit(X_tr, y_tr)
+
+# predictions
+y_pred_rbf = svr_rbf.predict(X_te)
+y_pred_lin = svr_lin.predict(X_te)
+y_pred_poly = svr_poly.predict(X_te)
+
+# fixed linear model parameters (intercept then features)
+theta = np.array([
+    1900563.24,  # intercept
+    2796088.95,  # area
+    786167.01,   # bedrooms
+    2788723.16,  # bathrooms
+    1242479.05,  # stories
+    479021.23,   # mainroad
+    291412.56,   # guestroom
+    413403.10,   # basement
+    697124.62,   # hotwaterheating
+    843144.28,   # airconditioning
+    861042.73,   # parking
+    644538.66    # prefarea
+])
+
+# augment test set with bias and compute HW1 predictions
+bias_col = np.ones((X_te.shape[0], 1))
+X_te_bias = np.hstack((bias_col, X_te))
+y_pred_hw1 = X_te_bias @ theta
+
+# plotting
+plt.figure(figsize=(8, 6))
+lw = 2
+
+# sort by true prices for smooth lines
+order = np.argsort(y_te)
+y_true_sorted = y_te[order]
+y_hw1_sorted = y_pred_hw1[order]
+
+plt.scatter(y_te, y_pred_rbf, color='darkorange', label='SVR (RBF)', alpha=0.6)
+plt.plot(y_true_sorted, np.sort(y_pred_rbf), color='navy', lw=lw, label='RBF fit')
+plt.plot(y_true_sorted, np.sort(y_pred_lin), color='darkred', lw=lw, label='SVR (Linear)')
+plt.plot(y_true_sorted, np.sort(y_pred_poly), color='red', lw=lw, label='SVR (Polynomial)')
+
+# HW1 line
+plt.plot(y_true_sorted, y_hw1_sorted, color='lightgray', lw=lw, label='HW1 Linear Reg')
+
+# fixed axes
+plt.xlim(0.1e7, 1.4e7)
+plt.ylim(4.284e6, 4.3e6)
+
+plt.xlabel('Actual Price')
+plt.ylabel('Predicted Price')
+plt.title('SVR vs Homework 2 Linear Regression - Housing Price Prediction')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
